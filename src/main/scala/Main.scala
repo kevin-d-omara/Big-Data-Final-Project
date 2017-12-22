@@ -1,9 +1,7 @@
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.log4j.{Level, LogManager, Logger}
-
 import org.apache.spark.sql._
-import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.feature._
+
 // If running from IntelliJ, perform one-time setup:
 //    # Add Spark libraries:
 //    Click File > Project Structure
@@ -22,40 +20,49 @@ import org.apache.spark.ml.feature._
 //
 object Main {
 
-  // Technically should be set in $SPARK_HOME/conf/log4j.properties.template
-  Logger.getLogger("org").setLevel(Level.ERROR)
-
-  // Initialize session.
-  val conf = new SparkConf().setAppName("Final Project - LDA on Tweets")
-  val sc = new SparkContext(conf)
-  val spark = SparkSession.builder().appName("Final Project - LDA on Tweets").getOrCreate()
-  val log = LogManager.getRootLogger
-
-
   def main(args: Array[String]) {
 
-    log.info("hello, world")
+    // Technically should be set in $SPARK_HOME/conf/log4j.properties.template
+    Logger.getLogger("org").setLevel(Level.ERROR)
 
-    val df = spark.read.option("header", "false").csv("tweets.txt").withColumnRenamed("_c0", "text")
-    df.show(10)
+    val conf = new SparkConf().setAppName("Final Project - LDA on Tweets").setMaster("local[*]").set("spark.executor.memory", "2g")
+    val spark = SparkSession.builder().config(conf).getOrCreate()
+    val sc = spark.sparkContext
+    val log = LogManager.getRootLogger
 
-    val vocabSize = 2900000
+    // Check for valid input.
+    if (args.length < 1)
+    {
+      log.error("Requires one argument, " + args.length + " provided.")
+      log.error("Usage:")
+      log.error("args[0]          => path to input tweets file, one tweet per line, ex: s3n://komara.sdsu.big-data.LDATweets/tweets.txt")
+      log.error("Optional:")
+      log.error("-k, --topics     => number of topics to discover, default: 5")
+      log.error("-n, --topicWords => number of words to associated with each topic, default: 20")
+      log.error("-s, --stopWords  => path to custom stopwords file, one stopword per line, ex: s3n://komara.sdsu.big-data.LDATweets/customStopWords.txt")
+      return
+    }
 
-    //Tokenizing using the RegexTokenizer
-    val tokenizer = new RegexTokenizer().setInputCol("text").setOutputCol("tokens")
+    // LDA Params
+    val params = LDAParams()
+    params.tweetsFile = args(0)
 
-    ////Removing the Stop-words using the Stop Words remover
-    //val stopWordsRemover = new StopWordsRemover().setInputCol("rawTokens").setOutputCol("tokens")
-    //stopWordsRemover.setStopWords(stopWordsRemover.getStopWords ++ customizedStopWords)
+    args.sliding(2, 1).toList.collect {
+      case Array("-k", arg: String)       => params.k = arg.toInt
+      case Array("--topics", arg: String) => params.k = arg.toInt
 
-    //Converting the Tokens into the CountVector
-    val countVectorizer = new CountVectorizer().setVocabSize(vocabSize).setInputCol("tokens").setOutputCol("features")
+      case Array("-n", arg: String)           => params.numWordsPerTopics = arg.toInt
+      case Array("--topicWords", arg: String) => params.numWordsPerTopics = arg.toInt
 
-    val pipeline = new Pipeline().setStages(Array(tokenizer, countVectorizer))
+      case Array("-s", arg: String)          => params.customStopWordsFile = arg
+      case Array("--stopWords", arg: String) => params.customStopWordsFile = arg
+    }
 
-    val countVectorizedDf = pipeline.fit(df).transform(df)
+    // Pre-Process
+    val (corpus, vocabulary, actualCorpusSize) = new LDAPreProcessor(sc, spark).preprocess(params)
 
-    countVectorizedDf.show(10)
+    // Run LDA
+    new LDARunner(sc, spark).run(params, corpus, vocabulary, actualCorpusSize)
 
     sc.stop()
   }

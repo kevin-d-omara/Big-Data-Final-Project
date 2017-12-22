@@ -20,7 +20,7 @@ class LDAPreProcessor(sc: SparkContext, spark: SparkSession)  {
 
     import spark.implicits._
     //Reading the Whole Text Files
-    val initialrdd = spark.sparkContext.wholeTextFiles(params.tweetsFile).map(_._2)
+    val initialrdd = spark.sparkContext.textFile(params.tweetsFile)
     initialrdd.cache()
     val rdd = initialrdd.mapPartitions { partition =>
       val morphology = new Morphology()
@@ -66,7 +66,7 @@ class LDAPreProcessor(sc: SparkContext, spark: SparkSession)  {
 
 
     // Display results.
-    val actualCorpusSize = documents.count()
+    val actualCorpusSize = df.count
     val actualVocabSize = vocabulary.length
     val preprocessElapsed = (System.nanoTime() - preprocessStart) / 1e9
 

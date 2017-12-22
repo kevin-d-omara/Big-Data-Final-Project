@@ -63,6 +63,5 @@ class LDARunner(sc: SparkContext, spark: SparkSession) {
       }
       println()
     }
-    sc.stop()
   }
 }

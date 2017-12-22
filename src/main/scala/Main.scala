@@ -38,6 +38,8 @@ object Main {
 
     log.info("hello, world")
 
+    val df = spark.read.option("header", "false").csv("tweets.txt").withColumnRenamed("_c0", "text")
+    df.show(10)
     sc.stop()
   }
 }

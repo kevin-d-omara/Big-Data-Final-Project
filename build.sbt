@@ -10,3 +10,9 @@ libraryDependencies += "org.apache.spark" %% "spark-sql" % "2.2.0"
 
 // Required for imports from the 'org.apache.spark.ml' namespace.
 libraryDependencies += "org.apache.spark" %% "spark-mllib" % "2.2.0"
+
+libraryDependencies ++= Seq(
+  "edu.stanford.nlp" % "stanford-corenlp" % "3.6.0",
+  "edu.stanford.nlp" % "stanford-corenlp" % "3.6.0" classifier "models",
+  "com.google.protobuf" % "protobuf-java" % "2.6.1"
+)

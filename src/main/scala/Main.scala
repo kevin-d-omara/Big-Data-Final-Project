@@ -2,10 +2,8 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.log4j.{Level, LogManager, Logger}
 
 import org.apache.spark.sql._
-import org.apache.spark.sql.functions._
-
-import org.apache.spark.ml.classification.RandomForestClassifier
-
+import org.apache.spark.ml.Pipeline
+import org.apache.spark.ml.feature._
 // If running from IntelliJ, perform one-time setup:
 //    # Add Spark libraries:
 //    Click File > Project Structure
@@ -40,6 +38,25 @@ object Main {
 
     val df = spark.read.option("header", "false").csv("tweets.txt").withColumnRenamed("_c0", "text")
     df.show(10)
+
+    val vocabSize = 2900000
+
+    //Tokenizing using the RegexTokenizer
+    val tokenizer = new RegexTokenizer().setInputCol("text").setOutputCol("tokens")
+
+    ////Removing the Stop-words using the Stop Words remover
+    //val stopWordsRemover = new StopWordsRemover().setInputCol("rawTokens").setOutputCol("tokens")
+    //stopWordsRemover.setStopWords(stopWordsRemover.getStopWords ++ customizedStopWords)
+
+    //Converting the Tokens into the CountVector
+    val countVectorizer = new CountVectorizer().setVocabSize(vocabSize).setInputCol("tokens").setOutputCol("features")
+
+    val pipeline = new Pipeline().setStages(Array(tokenizer, countVectorizer))
+
+    val countVectorizedDf = pipeline.fit(df).transform(df)
+
+    countVectorizedDf.show(10)
+
     sc.stop()
   }
 }
